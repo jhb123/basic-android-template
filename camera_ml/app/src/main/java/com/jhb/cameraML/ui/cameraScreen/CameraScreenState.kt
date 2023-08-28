@@ -1,7 +1,7 @@
 package com.jhb.cameraML.ui.cameraScreen
 
-import androidx.camera.core.ImageCapture
+import com.google.mlkit.vision.common.InputImage
 
 data class CameraScreenState(
-    val imageCapture: ImageCapture? = null
+    val pre_processed: InputImage? = null
 )

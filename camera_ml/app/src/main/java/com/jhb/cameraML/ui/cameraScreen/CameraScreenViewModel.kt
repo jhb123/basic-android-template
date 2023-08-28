@@ -1,9 +1,12 @@
 package com.jhb.cameraML.ui.cameraScreen
 
+import android.graphics.Bitmap
 import android.media.Image
+import android.renderscript.ScriptGroup.Input
 import android.util.Log
 import androidx.camera.core.ImageCapture
 import androidx.lifecycle.ViewModel
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -15,18 +18,13 @@ class CameraScreenViewModel() : ViewModel() {
     private val _cameraState = MutableStateFlow(CameraScreenState())
     val cameraState : StateFlow<CameraScreenState> = _cameraState
 
-    fun setCaptureUseCase(imageCapture : ImageCapture){
+    fun setPreprossedImage(image: InputImage?){
+
         _cameraState.update {
             it.copy(
-                imageCapture = imageCapture
+                pre_processed = image
             )
         }
-    }
-
-    fun setImage(image: Image){
-        Log.i(TAG, "Image format ${image.format}")
-        Log.i(TAG, "Image size ${image.planes.size}")
-        Log.i(TAG, "Image timestamp ${image.timestamp}")
     }
 
 

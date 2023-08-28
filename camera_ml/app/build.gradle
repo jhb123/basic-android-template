@@ -95,5 +95,7 @@ dependencies {
     // permission requests
     implementation "com.google.accompanist:accompanist-permissions:0.30.1"
 
+    //ML
+    implementation 'com.google.mlkit:text-recognition:16.0.0'
 
 }

@@ -1,6 +1,9 @@
 package com.jhb.cameraML.ui.cameraScreen
 
 import android.Manifest
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.Image
 import android.os.Build
 import android.util.Log
 import android.view.ViewGroup
@@ -18,25 +21,33 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.launch
 import java.io.File
+import androidx.compose.foundation.Image as BitmapImage
 
 private const val TAG = "CameraScreen"
 
@@ -66,6 +77,7 @@ fun CameraScreen(){
 @Composable
 fun CameraScreenComposable(){
     val cameraScreenViewModel: CameraScreenViewModel = viewModel()
+    val uiState by cameraScreenViewModel.cameraState.collectAsState()
 
 
     Column(
@@ -73,7 +85,20 @@ fun CameraScreenComposable(){
         verticalArrangement = Arrangement.SpaceBetween,
         horizontalAlignment = Alignment.CenterHorizontally
     ){
-        CameraParts(modifier = Modifier.height(500.dp))
+        CameraParts(
+            modifier = Modifier.height(500.dp),
+            updatePreprocessed = { cameraScreenViewModel.setPreprossedImage(it) }
+        )
+        uiState.pre_processed?.let {inputImage ->
+            inputImage.bitmapInternal?.let { bitmap ->
+                BitmapImage(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "some useful description",
+                    modifier = Modifier.size(200.dp)
+                )
+            }
+        }
+
         // TODO: put other stuff here?
     }
 }
@@ -83,13 +108,14 @@ fun CameraScreenComposable(){
 fun CameraParts(
     modifier: Modifier = Modifier,
     scaleType: PreviewView.ScaleType = PreviewView.ScaleType.FILL_CENTER,
-    cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+    cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA,
+    updatePreprocessed : (InputImage?)-> Unit
 ) {
     // CameraX still doesn't have compose support.
     val coroutineScope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
-    var imageCapture: ImageCapture? = remember { null }
+    var imageCapture: ImageCapture? = remember { ImageCapture.Builder().build() }
 
     // When the AndroidView is composed, the CameraX code that is required to
     // set up the connection to the camera is run. The button
@@ -119,8 +145,8 @@ fun CameraParts(
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
-                imageCapture = ImageCapture.Builder()
-                    .build()
+//                imageCapture = ImageCapture.Builder()
+//                    .build()
                 
                 coroutineScope.launch {
                     val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
@@ -140,36 +166,48 @@ fun CameraParts(
         )
         Button(
             onClick = {
-            Log.i(TAG,"taking picture")
+                Log.i(TAG,"taking picture")
 
-            // Create output options using the cache. This doesn't need permissions
-            // and is only accessible by this app.
-            val cacheDir = context.getCacheDir()
-            val cacheFile = File.createTempFile("temp_image", ".jpeg", cacheDir);
+                // Create output options using the cache. This doesn't need permissions
+                // and is only accessible by this app.
+                val cacheDir = context.getCacheDir()
+                val cacheFile = File.createTempFile("temp_image", ".jpeg", cacheDir);
+                Log.i(TAG,"Building output")
+                val outputOptions = ImageCapture.OutputFileOptions
+                    .Builder(cacheFile)
+                    .build()
 
-            val outputOptions = ImageCapture.OutputFileOptions
-                .Builder(cacheFile)
-                .build()
-            // Set up image capture listener, which is triggered after photo has
+                Log.i(TAG,"finished building output")
+
+                // Set up image capture listener, which is triggered after photo has
             // been taken
-            imageCapture?.takePicture(
-                outputOptions,
-                ContextCompat.getMainExecutor(context),
-                object : ImageCapture.OnImageSavedCallback {
-                    override fun onError(exc: ImageCaptureException) {
-                        Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
-                    }
+                imageCapture?.takePicture(
+                    outputOptions,
+                    ContextCompat.getMainExecutor(context),
+                    object : ImageCapture.OnImageSavedCallback {
+                        override fun onError(exc: ImageCaptureException) {
+                            Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+                        }
 
-                    override fun
-                            onImageSaved(output: ImageCapture.OutputFileResults){
-                        val msg = "Photo capture succeeded: ${output.savedUri}"
-                        Toast.makeText(context.applicationContext, msg, Toast.LENGTH_SHORT).show()
-                        Log.d(TAG, msg)
-                    }
-
+                        override fun onImageSaved(output: ImageCapture.OutputFileResults){
+                            val msg = "Photo capture succeeded: ${output.savedUri}"
+                            Toast.makeText(context.applicationContext, msg, Toast.LENGTH_SHORT).show()
+                            Log.d(TAG, msg)
+                            //val bitmap = BitmapFactory.decodeFile(output.savedUri.toString())
+                            updatePreprocessed(
+                                output.savedUri?.let {
+                                    InputImage.fromFilePath(context.applicationContext,
+                                        it
+                                    )
+                                }
+                            )
+                            Log.i(TAG,"Finished taking photo")
+                        }
+                    })
             })
-        }){Text("take pic")}
-
+        {
+            Text("take pic")
+        }
     }
 }
 

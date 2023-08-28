@@ -14,17 +14,24 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.camera.core.Preview as CameraPreview
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -73,6 +80,7 @@ fun CameraScreen(){
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @RequiresApi(Build.VERSION_CODES.P)
 @Composable
 fun CameraScreenComposable(){
@@ -80,26 +88,37 @@ fun CameraScreenComposable(){
     val uiState by cameraScreenViewModel.cameraState.collectAsState()
 
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.SpaceBetween,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ){
-        CameraParts(
-            modifier = Modifier.height(500.dp),
-            updatePreprocessed = { cameraScreenViewModel.setPreprossedImage(it) }
-        )
-        uiState.pre_processed?.let {inputImage ->
-            inputImage.bitmapInternal?.let { bitmap ->
-                BitmapImage(
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = "some useful description",
-                    modifier = Modifier.size(200.dp)
+    // Remove bouncyness - it causes the camera preview to look weird.
+    CompositionLocalProvider(
+        LocalOverscrollConfiguration provides null
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                CameraParts(
+                    modifier = Modifier.height(500.dp),
+                    updatePreprocessed = { cameraScreenViewModel.setPreprossedImage(it) }
                 )
             }
-        }
+            item {
 
-        // TODO: put other stuff here?
+                uiState.pre_processed?.let { inputImage ->
+                    inputImage.bitmapInternal?.let { bitmap ->
+                        BitmapImage(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "some useful description",
+                            modifier = Modifier.size(100.dp)
+                        )
+                    }
+                }
+            }
+            item {
+                uiState.text?.let { Text(text = it) }
+            }
+        }
     }
 }
 

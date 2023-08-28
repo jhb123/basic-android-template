@@ -1,13 +1,9 @@
 package com.jhb.cameraML.ui.cameraScreen
 
-import android.graphics.Bitmap
-import android.media.Image
-import android.renderscript.ScriptGroup.Input
-import android.util.Log
-import androidx.camera.core.ImageCapture
 import androidx.lifecycle.ViewModel
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,13 +29,22 @@ class CameraScreenViewModel() : ViewModel() {
 
     fun analyseText(image: InputImage?) {
         image?.let{
+            TextRecognizerOptions.CREDIT_CARD
             val result = recognizer.process(it)
                 .addOnSuccessListener { visionText ->
                     // Task completed successfully
                     // ...
+                    var text = ""
+
+                    visionText.textBlocks.forEach { textBlock ->
+                        textBlock.lines.forEach { line ->
+                            text += "\n${line.text}"
+                        }
+                    }
+
                     _cameraState.update {
                         it.copy(
-                            text = visionText.text.toString()
+                            text = text
                         )
                     }
 
